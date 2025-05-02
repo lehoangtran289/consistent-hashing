@@ -6,11 +6,11 @@ public record VirtualNode<T extends Node>(
 ) implements Node {
 
     @Override
-    public String getKey() {
-        return physicalNode.getKey() + "-" + replicaIndex;
+    public String key() {
+        return physicalNode.key() + "-" + replicaIndex;
     }
 
     public boolean isVirtualNodeOf(T pNode) {
-        return physicalNode.getKey().equals(pNode.getKey());
+        return physicalNode.key().equals(pNode.key());
     }
 }

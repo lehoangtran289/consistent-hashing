@@ -48,9 +48,10 @@ public class ConsistentHashRing<T extends Node> {
         }
 
         int existingReplicas = getExistingReplicas(pNode);
+
         for (int i = 0; i < vNodeCount; i++) {
             VirtualNode<T> vNode = new VirtualNode<>(pNode, i + existingReplicas);
-            ring.put(hashFunction.hash(vNode.getKey()), vNode);
+            ring.put(hashFunction.hash(vNode.key()), vNode);
         }
     }
 
@@ -61,6 +62,7 @@ public class ConsistentHashRing<T extends Node> {
      */
     public void removeNode(T pNode) {
         Iterator<Long> it = ring.keySet().iterator();
+
         while (it.hasNext()) {
             Long key = it.next();
             VirtualNode<T> virtualNode = ring.get(key);
@@ -80,20 +82,39 @@ public class ConsistentHashRing<T extends Node> {
         if (ring.isEmpty()) {
             return null;
         }
+
         Long hashVal = hashFunction.hash(objectKey);
+
         SortedMap<Long, VirtualNode<T>> tailMap = ring.tailMap(hashVal);
         Long nodeHashVal = !tailMap.isEmpty() ? tailMap.firstKey() : ring.firstKey();
+
         return ring.get(nodeHashVal).physicalNode();
     }
 
 
     public int getExistingReplicas(T pNode) {
         int replicas = 0;
+
         for (VirtualNode<T> vNode : ring.values()) {
             if (vNode.isVirtualNodeOf(pNode)) {
                 replicas++;
             }
         }
+
         return replicas;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("ConsistentHashRing{");
+        sb.append("hashFunction=").append(hashFunction.getClass().getSimpleName());
+        sb.append(", ring={");
+        for (Long key : ring.keySet()) {
+            sb.append(key).append(":").append(ring.get(key).physicalNode().key()).append(",");
+        }
+        sb.deleteCharAt(sb.length() - 1);
+        sb.append("}}");
+        return sb.toString();
     }
 }
