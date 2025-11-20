@@ -2,7 +2,7 @@ package com;
 
 import com.core.ConsistentHashRing;
 import com.hashing.MD5Hash;
-import com.node.SimpleNode;
+import com.node.ServiceNode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,13 +10,13 @@ import java.util.List;
 public class Application {
     public static void main(String[] args) {
         // Create a list of physical nodes
-        List<SimpleNode> physicalNodes = new ArrayList<>();
-        physicalNodes.add(new SimpleNode("Node1"));
-        physicalNodes.add(new SimpleNode("Node2"));
-        physicalNodes.add(new SimpleNode("Node3"));
+        List<ServiceNode> physicalNodes = new ArrayList<>();
+        physicalNodes.add(new ServiceNode("Node1", "127.0.0.1", 8080));
+        physicalNodes.add(new ServiceNode("Node2", "127.0.0.1", 8081));
+        physicalNodes.add(new ServiceNode("Node3", "127.0.0.1", 8082));
 
         // Create a ConsistentHashRing with 3 virtual nodes per physical node
-        ConsistentHashRing<SimpleNode> hashRing = new ConsistentHashRing<>(physicalNodes, 3, new MD5Hash());
+        ConsistentHashRing<ServiceNode> hashRing = new ConsistentHashRing<>(physicalNodes, 3, new MD5Hash());
 
         System.out.println(hashRing);
 
@@ -25,7 +25,7 @@ public class Application {
         routeKeys(hashRing);
 
         // Add a new physical node
-        SimpleNode newNode = new SimpleNode("Node4");
+        ServiceNode newNode = new ServiceNode("Node4", "127.0.0.1", 8084);
         hashRing.addNode(newNode, 3);
         System.out.println("\nAdded Node4. Routing keys again:");
         routeKeys(hashRing);
@@ -36,7 +36,7 @@ public class Application {
         routeKeys(hashRing);
     }
 
-    private static void routeKeys(ConsistentHashRing<SimpleNode> hashRing) {
+    private static void routeKeys(ConsistentHashRing<ServiceNode> hashRing) {
         System.out.println("Key1 -> " + hashRing.routeNode("Key-1"));
         System.out.println("Key2 -> " + hashRing.routeNode("Key-2"));
         System.out.println("Key3 -> " + hashRing.routeNode("Key-3"));
