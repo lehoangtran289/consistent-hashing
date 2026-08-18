@@ -1,23 +1,22 @@
 package com;
 
 import com.core.ConsistentHashRing;
-import com.hashing.MD5Hash;
+import com.hashing.MurmurHash;
 import com.node.ServiceNode;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class Application {
     public static void main(String[] args) {
         // Create a list of physical nodes
-        List<ServiceNode> physicalNodes = new ArrayList<>();
-        physicalNodes.add(new ServiceNode("Node1", "127.0.0.1", 8080));
-        physicalNodes.add(new ServiceNode("Node2", "127.0.0.1", 8081));
-        physicalNodes.add(new ServiceNode("Node3", "127.0.0.1", 8082));
+        List<ServiceNode> physicalNodes = List.of(
+                new ServiceNode("Node1", "127.0.0.1", 8080),
+                new ServiceNode("Node2", "127.0.0.1", 8081),
+                new ServiceNode("Node3", "127.0.0.1", 8082)
+        );
 
         // Create a ConsistentHashRing with 3 virtual nodes per physical node
-        ConsistentHashRing<ServiceNode> hashRing = new ConsistentHashRing<>(physicalNodes, 3, new MD5Hash());
-
+        ConsistentHashRing<ServiceNode> hashRing = new ConsistentHashRing<>(physicalNodes, 3, new MurmurHash());
         System.out.println(hashRing);
 
         // Route some keys
@@ -27,11 +26,13 @@ public class Application {
         // Add a new physical node
         ServiceNode newNode = new ServiceNode("Node4", "127.0.0.1", 8084);
         hashRing.addNode(newNode, 3);
+
         System.out.println("\nAdded Node4. Routing keys again:");
         routeKeys(hashRing);
 
         // Remove a physical node
         hashRing.removeNode(physicalNodes.get(2)); // Remove Node3
+
         System.out.println("\nRemoved Node3. Routing keys again:");
         routeKeys(hashRing);
     }

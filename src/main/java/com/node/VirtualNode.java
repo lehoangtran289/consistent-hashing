@@ -9,8 +9,4 @@ public record VirtualNode<T extends Node>(
     public String key() {
         return physicalNode.key() + "-" + replicaIndex;
     }
-
-    public boolean isVirtualNodeOf(T pNode) {
-        return physicalNode.key().equals(pNode.key());
-    }
 }

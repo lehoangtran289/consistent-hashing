@@ -1,21 +1,24 @@
 package com.core;
 
 import com.hashing.HashFunction;
-import com.hashing.MD5Hash;
+import com.hashing.MurmurHash;
 import com.node.Node;
 import com.node.VirtualNode;
 
 import java.util.Collection;
-import java.util.Iterator;
-import java.util.SortedMap;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.TreeMap;
 
 public class ConsistentHashRing<T extends Node> {
-    private final SortedMap<Long, VirtualNode<T>> ring = new TreeMap<>();
+    private final NavigableMap<Long, VirtualNode<T>> ring = new TreeMap<>();
+    private final Map<String, Integer> replicaCounts = new HashMap<>();
     private final HashFunction hashFunction;
 
     public ConsistentHashRing(Collection<T> pNodes, int vNodeCount) {
-        this(pNodes, vNodeCount, new MD5Hash());
+        this(pNodes, vNodeCount, new MurmurHash());
     }
 
     /**
@@ -24,9 +27,7 @@ public class ConsistentHashRing<T extends Node> {
      * @param hashFunction hash Function to hash Node instances
      */
     public ConsistentHashRing(Collection<T> pNodes, int vNodeCount, HashFunction hashFunction) {
-        if (hashFunction == null) {
-            throw new NullPointerException("Hash Function is null");
-        }
+        Objects.requireNonNull(hashFunction, "hashFunction must not be null");
         this.hashFunction = hashFunction;
 
         if (pNodes != null && !pNodes.isEmpty()) {
@@ -47,28 +48,28 @@ public class ConsistentHashRing<T extends Node> {
             throw new IllegalArgumentException("illegal virtual node counts :" + vNodeCount);
         }
 
-        int existingReplicas = getExistingReplicas(pNode);
+        int existingReplicas = replicaCounts.getOrDefault(pNode.key(), 0);
 
         for (int i = 0; i < vNodeCount; i++) {
             VirtualNode<T> vNode = new VirtualNode<>(pNode, i + existingReplicas);
             ring.put(hashFunction.hash(vNode.key()), vNode);
         }
+
+        replicaCounts.put(pNode.key(), existingReplicas + vNodeCount);
     }
 
     /**
      * remove the physical node from the hash ring
      *
-     * @param pNode
+     * @param pNode physical node to drop, together with all of its virtual nodes
      */
     public void removeNode(T pNode) {
-        Iterator<Long> it = ring.keySet().iterator();
+        Integer replicas = replicaCounts.remove(pNode.key());
+        if (replicas == null) return;
 
-        while (it.hasNext()) {
-            Long key = it.next();
-            VirtualNode<T> virtualNode = ring.get(key);
-            if (virtualNode.isVirtualNodeOf(pNode)) {
-                it.remove();
-            }
+        for (int i = 0; i < replicas; i++) {
+            VirtualNode<T> vNode = new VirtualNode<>(pNode, i);
+            ring.remove(hashFunction.hash(vNode.key()), vNode);
         }
     }
 
@@ -76,7 +77,7 @@ public class ConsistentHashRing<T extends Node> {
      * with a specified key, route the nearest Node instance in the current hash ring
      *
      * @param objectKey the object key to find a nearest Node
-     * @return
+     * @return the physical node owning the key, or null when the ring is empty
      */
     public T routeNode(String objectKey) {
         if (ring.isEmpty()) {
@@ -85,23 +86,12 @@ public class ConsistentHashRing<T extends Node> {
 
         Long hashVal = hashFunction.hash(objectKey);
 
-        SortedMap<Long, VirtualNode<T>> tailMap = ring.tailMap(hashVal);
-        Long nodeHashVal = !tailMap.isEmpty() ? tailMap.firstKey() : ring.firstKey();
+        // single tree traversal; wrap around to the head of the ring when past the last node
+        Map.Entry<Long, VirtualNode<T>> entry = ring.ceilingEntry(hashVal);
 
-        return ring.get(nodeHashVal).physicalNode();
-    }
-
-
-    public int getExistingReplicas(T pNode) {
-        int replicas = 0;
-
-        for (VirtualNode<T> vNode : ring.values()) {
-            if (vNode.isVirtualNodeOf(pNode)) {
-                replicas++;
-            }
-        }
-
-        return replicas;
+        return entry != null ?
+                entry.getValue().physicalNode() :
+                ring.firstEntry().getValue().physicalNode();
     }
 
     @Override
@@ -110,10 +100,12 @@ public class ConsistentHashRing<T extends Node> {
         sb.append("ConsistentHashRing{");
         sb.append("hashFunction=").append(hashFunction.getClass().getSimpleName());
         sb.append(", ring={");
-        for (Long key : ring.keySet()) {
-            sb.append(key).append(":").append(ring.get(key).physicalNode().key()).append(",");
+        boolean first = true;
+        for (var entry : ring.entrySet()) {
+            if (!first) sb.append(",");
+            sb.append(entry.getKey()).append(":").append(entry.getValue().physicalNode().key());
+            first = false;
         }
-        sb.deleteCharAt(sb.length() - 1);
         sb.append("}}");
         return sb.toString();
     }
